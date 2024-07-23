@@ -34,6 +34,7 @@ export class SrcStack extends Stack {
     const bucket = new Bucket(this, bucketId, {
       bucketName: bucketId,
       publicReadAccess: false,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
     // DynamoDB
