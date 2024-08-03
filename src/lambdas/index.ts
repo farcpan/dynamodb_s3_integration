@@ -12,7 +12,11 @@ export const handler = async (event: any, context: any) => {
 
   const records = event.Records;
 
-  const csvData: { id: string; dataType: string }[] = [];
+  const csvData: {
+    id: string;
+    dataType: string;
+    eventId: string;
+  }[] = [];
   for (const record of records) {
     const eventId = record.eventId;
     const eventName = record.eventName;
@@ -24,28 +28,23 @@ export const handler = async (event: any, context: any) => {
     if (eventName === "REMOVE") {
       const id = dynamodb.OldImage.id.S;
       const dataType = dynamodb.OldImage.dataType.S;
-      csvData.push({ id: id, dataType: dataType });
+      csvData.push({
+        id: id,
+        dataType: dataType,
+        eventId: eventId,
+      });
     }
   }
 
   if (csvData.length > 0) {
     const csvLine =
-      "Id,DataType\n" +
       csvData
         .map((csvDataInfo) => {
-          return `${csvDataInfo.id},${csvDataInfo.dataType}`;
+          // 1行ずつJSON文字列化してから連結
+          return JSON.stringify(csvDataInfo);
         })
-        .join("\n");
+        .join("\n") + "\n";
 
-    /*
-    const client = new S3Client();
-    const command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: "data/" + now + ".csv",
-      Body: csvLine,
-    });
-    await client.send(command);
-    */
     const client = new FirehoseClient();
     const command = new PutRecordCommand({
       DeliveryStreamName: streamName,

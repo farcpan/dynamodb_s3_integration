@@ -19,8 +19,11 @@ import {
   Role,
   ServicePrincipal,
 } from "aws-cdk-lib/aws-iam";
-import { CfnCrawler } from "aws-cdk-lib/aws-glue";
+import { CfnCrawler, CfnTable } from "aws-cdk-lib/aws-glue";
 import { CfnDeliveryStream } from "aws-cdk-lib/aws-kinesisfirehose";
+
+// 参考:
+// https://dev.classmethod.jp/articles/dynamic-partitioning-of-output-data-using-dynamic-partitioning-on-amazon-kinesis-data-firehose-aws-cdk/
 
 const systemName = "dynamodb-s3-integration";
 
@@ -68,7 +71,26 @@ export class SrcStack extends Stack {
           intervalInSeconds: 60,
           sizeInMBs: 128,
         },
-        prefix: "data/",
+        dynamicPartitioningConfiguration: {
+          enabled: true,
+        },
+        prefix:
+          "data/!{partitionKeyFromQuery:id}/!{partitionKeyFromQuery:dataType}/",
+        errorOutputPrefix: "error/",
+        processingConfiguration: {
+          enabled: true,
+          processors: [
+            {
+              type: "AppendDelimiterToRecord",
+              parameters: [
+                {
+                  parameterName: "Delimiter",
+                  parameterValue: "\\n",
+                },
+              ],
+            },
+          ],
+        },
         compressionFormat: "UNCOMPRESSED",
         roleArn: new Role(this, systemName + "-iam-role-for-stream", {
           assumedBy: new ServicePrincipal("firehose.amazonaws.com"),
@@ -122,6 +144,7 @@ export class SrcStack extends Stack {
     /*
       AWS Glue Crawler
     */
+    /*
     const crawlerRole = new Role(this, systemName + "-crawler-role", {
       assumedBy: new ServicePrincipal("glue.amazonaws.com"),
     });
@@ -146,5 +169,6 @@ export class SrcStack extends Stack {
       configuration:
         '{"Version": 1.0, "Grouping": {"TableGroupingPolicy": "CombineCompatibleSchemas"}}',
     });
+    */
   }
 }
