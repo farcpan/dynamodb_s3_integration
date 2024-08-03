@@ -1,4 +1,3 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { FirehoseClient, PutRecordCommand } from "@aws-sdk/client-firehose";
 
 export const handler = async (event: any, context: any) => {

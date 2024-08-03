@@ -21,6 +21,8 @@ import {
 } from "aws-cdk-lib/aws-iam";
 import { CfnCrawler, CfnTable } from "aws-cdk-lib/aws-glue";
 import { CfnDeliveryStream } from "aws-cdk-lib/aws-kinesisfirehose";
+import { Database, S3Table, Schema, DataFormat } from "@aws-cdk/aws-glue-alpha";
+import { CfnWorkGroup } from "aws-cdk-lib/aws-athena";
 
 // 参考:
 // https://dev.classmethod.jp/articles/dynamic-partitioning-of-output-data-using-dynamic-partitioning-on-amazon-kinesis-data-firehose-aws-cdk/
@@ -74,8 +76,7 @@ export class SrcStack extends Stack {
         dynamicPartitioningConfiguration: {
           enabled: true,
         },
-        prefix:
-          "data/!{partitionKeyFromQuery:id}/!{partitionKeyFromQuery:dataType}/",
+        prefix: "data/!{partitionKeyFromQuery:id}/",
         errorOutputPrefix: "error/",
         processingConfiguration: {
           enabled: true,
@@ -85,7 +86,7 @@ export class SrcStack extends Stack {
               parameters: [
                 {
                   parameterName: "MetadataExtractionQuery", //クエリ文字列
-                  parameterValue: "{id: .id, dataType: .dataType}",
+                  parameterValue: "{id: .id}",
                 },
                 {
                   parameterName: "JsonParsingEngine", //putされたデータをjqエンジンでクエリする
@@ -153,6 +154,42 @@ export class SrcStack extends Stack {
         resources: [deliveryStream.attrArn],
       })
     );
+
+    // カタログ
+    const dataCatalog = new Database(this, systemName + "-data-catalog", {
+      databaseName: systemName + "-data-catalog-db",
+    });
+    // データカタログテーブル
+    const dataGlueTable = new S3Table(this, systemName + "-s3-table", {
+      tableName: systemName + "-s3-table",
+      database: dataCatalog,
+      bucket: bucket,
+      s3Prefix: "data/",
+      partitionKeys: [
+        {
+          name: "id",
+          type: Schema.STRING,
+        },
+      ],
+      dataFormat: DataFormat.JSON,
+      columns: [
+        {
+          name: "dataType",
+          type: Schema.STRING,
+        },
+      ],
+    });
+
+    // Athenaワークグループ
+    new CfnWorkGroup(this, systemName + "athena-workgroup", {
+      name: systemName + "athena-workgroup",
+      workGroupConfiguration: {
+        resultConfiguration: {
+          outputLocation: `s3://${bucket.bucketName}/results`,
+        },
+      },
+      recursiveDeleteOption: true,
+    });
 
     /*
       AWS Glue Crawler
