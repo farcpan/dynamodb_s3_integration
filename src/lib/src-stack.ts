@@ -41,6 +41,7 @@ export class SrcStack extends Stack {
       bucketName: bucketId,
       publicReadAccess: false,
       removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
     });
 
     // DynamoDB
