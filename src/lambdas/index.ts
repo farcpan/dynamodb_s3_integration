@@ -8,11 +8,9 @@ export const handler = async (event: any, context: any) => {
     console.error("No stream_name.");
     return;
   }
-  const now = new Date().toISOString();
-
   const records = event.Records;
 
-  const csvData: {
+  const jsonData: {
     id: string;
     dataType: string;
     eventId: string;
@@ -28,7 +26,7 @@ export const handler = async (event: any, context: any) => {
     if (eventName === "REMOVE") {
       const id = dynamodb.OldImage.id.S;
       const dataType = dynamodb.OldImage.dataType.S;
-      csvData.push({
+      jsonData.push({
         id: id,
         dataType: dataType,
         eventId: eventId,
@@ -36,20 +34,12 @@ export const handler = async (event: any, context: any) => {
     }
   }
 
-  if (csvData.length > 0) {
-    const csvLine =
-      csvData
-        .map((csvDataInfo) => {
-          // 1行ずつJSON文字列化してから連結
-          return JSON.stringify(csvDataInfo);
-        })
-        .join("\n") + "\n";
-
-    const client = new FirehoseClient();
+  const client = new FirehoseClient();
+  for (const data of jsonData) {
     const command = new PutRecordCommand({
       DeliveryStreamName: streamName,
       Record: {
-        Data: Buffer.from(csvLine),
+        Data: Buffer.from(JSON.stringify(data)),
       },
     });
     await client.send(command);

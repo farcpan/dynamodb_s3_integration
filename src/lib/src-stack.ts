@@ -81,6 +81,19 @@ export class SrcStack extends Stack {
           enabled: true,
           processors: [
             {
+              type: "MetadataExtraction",
+              parameters: [
+                {
+                  parameterName: "MetadataExtractionQuery", //クエリ文字列
+                  parameterValue: "{id: .id, dataType: .dataType}",
+                },
+                {
+                  parameterName: "JsonParsingEngine", //putされたデータをjqエンジンでクエリする
+                  parameterValue: "JQ-1.6",
+                },
+              ],
+            },
+            {
               type: "AppendDelimiterToRecord",
               parameters: [
                 {
