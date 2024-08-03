@@ -78,7 +78,7 @@ export class SrcStack extends Stack {
           enabled: true,
         },
         prefix:
-          "data/!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:month}/!{partitionKeyFromQuery:day}",
+          "data/!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:month}/!{partitionKeyFromQuery:day}/",
         errorOutputPrefix: "error/",
         processingConfiguration: {
           enabled: true,
