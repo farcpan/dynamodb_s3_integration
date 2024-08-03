@@ -180,6 +180,14 @@ export class SrcStack extends Stack {
       ],
     });
 
+    // データカタログテーブルへのPartition Projectionの設定
+    const cfnTable = dataGlueTable.node.defaultChild as CfnTable;
+    cfnTable.addPropertyOverride("TableInput.Parameters", {
+      "projection.enabled": true,
+      "projection.id.type": "injected",
+      "storage.location.template": `s3://${bucket.bucketName}/data/` + "${id}",
+    });
+
     // Athenaワークグループ
     new CfnWorkGroup(this, systemName + "athena-workgroup", {
       name: systemName + "athena-workgroup",
