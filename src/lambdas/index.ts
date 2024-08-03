@@ -13,6 +13,7 @@ export const handler = async (event: any, context: any) => {
     id: string;
     dataType: string;
     eventId: string;
+    timestamp: string;
   }[] = [];
   for (const record of records) {
     const eventId = record.eventId;
@@ -25,10 +26,12 @@ export const handler = async (event: any, context: any) => {
     if (eventName === "REMOVE") {
       const id = dynamodb.OldImage.id.S;
       const dataType = dynamodb.OldImage.dataType.S;
+      const timestamp = dynamodb.OldImage.timestamp.S;
       jsonData.push({
         id: id,
         dataType: dataType,
         eventId: eventId,
+        timestamp: timestamp,
       });
     }
   }

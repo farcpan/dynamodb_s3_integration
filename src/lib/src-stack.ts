@@ -77,7 +77,8 @@ export class SrcStack extends Stack {
         dynamicPartitioningConfiguration: {
           enabled: true,
         },
-        prefix: "data/!{partitionKeyFromQuery:id}/",
+        prefix:
+          "data/!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:month}/!{partitionKeyFromQuery:day}",
         errorOutputPrefix: "error/",
         processingConfiguration: {
           enabled: true,
@@ -87,7 +88,8 @@ export class SrcStack extends Stack {
               parameters: [
                 {
                   parameterName: "MetadataExtractionQuery", //クエリ文字列
-                  parameterValue: "{id: .id}",
+                  parameterValue:
+                    "{year: .timestamp[:4], month: .timestamp[5:7], day: .timestamp[8:10]}",
                 },
                 {
                   parameterName: "JsonParsingEngine", //putされたデータをjqエンジンでクエリする
@@ -168,12 +170,16 @@ export class SrcStack extends Stack {
       s3Prefix: "data/",
       partitionKeys: [
         {
-          name: "id",
+          name: "timestamp",
           type: Schema.STRING,
         },
       ],
       dataFormat: DataFormat.JSON,
       columns: [
+        {
+          name: "id",
+          type: Schema.STRING,
+        },
         {
           name: "dataType",
           type: Schema.STRING,
@@ -185,8 +191,13 @@ export class SrcStack extends Stack {
     const cfnTable = dataGlueTable.node.defaultChild as CfnTable;
     cfnTable.addPropertyOverride("TableInput.Parameters", {
       "projection.enabled": true,
-      "projection.id.type": "injected",
-      "storage.location.template": `s3://${bucket.bucketName}/data/` + "${id}",
+      "projection.timestamp.type": "date",
+      "projection.timestamp.range": "2022/01/01,NOW",
+      "projection.timestamp.format": "yyyy/MM/dd",
+      "projection.timestamp.interval": 1,
+      "projection.timestamp.interval.unit": "DAYS",
+      "storage.location.template":
+        `s3://${bucket.bucketName}/data/` + "${timestamp}",
     });
 
     // Athenaワークグループ
