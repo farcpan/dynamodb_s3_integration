@@ -1,7 +1,13 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { FirehoseClient, PutRecordCommand } from "@aws-sdk/client-firehose";
 
 export const handler = async (event: any, context: any) => {
-  const bucketName = process.env["BUCKET_NAME"];
+  // const bucketName = process.env["BUCKET_NAME"];
+  const streamName = process.env["STREAM_NAME"];
+  if (!streamName) {
+    console.error("No stream_name.");
+    return;
+  }
   const now = new Date().toISOString();
 
   const records = event.Records;
@@ -12,8 +18,8 @@ export const handler = async (event: any, context: any) => {
     const eventName = record.eventName;
     const dynamodb = record.dynamodb;
 
-    console.log(eventName);
-    console.log(dynamodb);
+    //console.log(eventName);
+    //console.log(dynamodb);
 
     if (eventName === "REMOVE") {
       const id = dynamodb.OldImage.id.S;
@@ -31,11 +37,21 @@ export const handler = async (event: any, context: any) => {
         })
         .join("\n");
 
+    /*
     const client = new S3Client();
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: "data/" + now + ".csv",
       Body: csvLine,
+    });
+    await client.send(command);
+    */
+    const client = new FirehoseClient();
+    const command = new PutRecordCommand({
+      DeliveryStreamName: streamName,
+      Record: {
+        Data: Buffer.from(csvLine),
+      },
     });
     await client.send(command);
   }

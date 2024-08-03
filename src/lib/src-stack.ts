@@ -20,6 +20,7 @@ import {
   ServicePrincipal,
 } from "aws-cdk-lib/aws-iam";
 import { CfnCrawler } from "aws-cdk-lib/aws-glue";
+import { CfnDeliveryStream } from "aws-cdk-lib/aws-kinesisfirehose";
 
 const systemName = "dynamodb-s3-integration";
 
@@ -56,6 +57,28 @@ export class SrcStack extends Stack {
       timeToLiveAttribute: "timestamp",
     });
 
+    // Firehose
+    const deliveryStreamId = systemName + "-firehose";
+    const deliveryStream = new CfnDeliveryStream(this, deliveryStreamId, {
+      deliveryStreamName: deliveryStreamId,
+      deliveryStreamType: "DirectPut",
+      extendedS3DestinationConfiguration: {
+        bucketArn: bucket.bucketArn,
+        bufferingHints: {
+          intervalInSeconds: 60,
+          sizeInMBs: 128,
+        },
+        prefix: "data/",
+        compressionFormat: "UNCOMPRESSED",
+        roleArn: new Role(this, systemName + "-iam-role-for-stream", {
+          assumedBy: new ServicePrincipal("firehose.amazonaws.com"),
+          managedPolicies: [
+            ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess"),
+          ],
+        }).roleArn,
+      },
+    });
+
     // Lambda
     const path = join(__dirname, "../lambdas/index.ts");
     const dynamodbTriggeredLambdaId = systemName + "-lambda-func";
@@ -71,6 +94,7 @@ export class SrcStack extends Stack {
         handler: "handler",
         environment: {
           BUCKET_NAME: bucket.bucketName,
+          STREAM_NAME: deliveryStream.deliveryStreamName ?? "",
         },
       }
     );
@@ -84,7 +108,16 @@ export class SrcStack extends Stack {
     );
 
     // Lambda -> S3
-    bucket.grantPut(dynamodbTriggeredLambdaFunction); // Lambda -> S3 put object
+    // bucket.grantPut(dynamodbTriggeredLambdaFunction); // Lambda -> S3 put object
+
+    // Lambda -> Firehose
+    dynamodbTriggeredLambdaFunction.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["firehose:PutRecord"],
+        resources: [deliveryStream.attrArn],
+      })
+    );
 
     /*
       AWS Glue Crawler
