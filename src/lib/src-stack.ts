@@ -60,7 +60,7 @@ export class SrcStack extends Stack {
       deletionProtection: false,
       removalPolicy: RemovalPolicy.DESTROY,
       stream: StreamViewType.NEW_AND_OLD_IMAGES,
-      timeToLiveAttribute: "timestamp",
+      timeToLiveAttribute: "ttl", // TTL attribute
     });
 
     // Firehose
@@ -74,41 +74,16 @@ export class SrcStack extends Stack {
           intervalInSeconds: 60,
           sizeInMBs: 128,
         },
+        /*
         dynamicPartitioningConfiguration: {
           enabled: true,
         },
-        prefix:
-          "data/!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:month}/!{partitionKeyFromQuery:day}/",
+        */
+        // Ref: https://docs.aws.amazon.com/ja_jp/firehose/latest/dev/basic-deliver.html
+        customTimeZone: "Asia/Tokyo",
+        prefix: "data/",
         errorOutputPrefix: "error/",
-        processingConfiguration: {
-          enabled: true,
-          processors: [
-            {
-              type: "MetadataExtraction",
-              parameters: [
-                {
-                  parameterName: "MetadataExtractionQuery", //クエリ文字列
-                  parameterValue:
-                    "{year: .timestamp[:4], month: .timestamp[5:7], day: .timestamp[8:10]}",
-                },
-                {
-                  parameterName: "JsonParsingEngine", //putされたデータをjqエンジンでクエリする
-                  parameterValue: "JQ-1.6",
-                },
-              ],
-            },
-            {
-              type: "AppendDelimiterToRecord",
-              parameters: [
-                {
-                  parameterName: "Delimiter",
-                  parameterValue: "\\n",
-                },
-              ],
-            },
-          ],
-        },
-        compressionFormat: "UNCOMPRESSED",
+        compressionFormat: "GZIP",
         roleArn: new Role(this, systemName + "-iam-role-for-stream", {
           assumedBy: new ServicePrincipal("firehose.amazonaws.com"),
           managedPolicies: [
@@ -146,9 +121,6 @@ export class SrcStack extends Stack {
       })
     );
 
-    // Lambda -> S3
-    // bucket.grantPut(dynamodbTriggeredLambdaFunction); // Lambda -> S3 put object
-
     // Lambda -> Firehose
     dynamodbTriggeredLambdaFunction.addToRolePolicy(
       new PolicyStatement({
@@ -174,7 +146,7 @@ export class SrcStack extends Stack {
           type: Schema.STRING,
         },
       ],
-      dataFormat: DataFormat.JSON,
+      dataFormat: DataFormat.CSV,
       columns: [
         {
           name: "id",
@@ -183,6 +155,14 @@ export class SrcStack extends Stack {
         {
           name: "dataType",
           type: Schema.STRING,
+        },
+        {
+          name: "timestamp_1",
+          type: Schema.BIG_INT,
+        },
+        {
+          name: "ttl",
+          type: Schema.BIG_INT,
         },
       ],
     });

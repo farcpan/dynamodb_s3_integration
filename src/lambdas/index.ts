@@ -1,7 +1,6 @@
 import { FirehoseClient, PutRecordCommand } from "@aws-sdk/client-firehose";
 
 export const handler = async (event: any, context: any) => {
-  // const bucketName = process.env["BUCKET_NAME"];
   const streamName = process.env["STREAM_NAME"];
   if (!streamName) {
     console.error("No stream_name.");
@@ -9,39 +8,27 @@ export const handler = async (event: any, context: any) => {
   }
   const records = event.Records;
 
-  const jsonData: {
-    id: string;
-    dataType: string;
-    eventId: string;
-    timestamp: string;
-  }[] = [];
+  const csvData: string[] = [];
   for (const record of records) {
-    const eventId = record.eventId;
+    // const eventId = record.eventId;
     const eventName = record.eventName;
     const dynamodb = record.dynamodb;
 
-    //console.log(eventName);
-    //console.log(dynamodb);
-
-    if (eventName === "REMOVE") {
-      const id = dynamodb.OldImage.id.S;
-      const dataType = dynamodb.OldImage.dataType.S;
-      const timestamp = dynamodb.OldImage.timestamp.S;
-      jsonData.push({
-        id: id,
-        dataType: dataType,
-        eventId: eventId,
-        timestamp: timestamp,
-      });
+    if (eventName === "INSERT") {
+      const id = dynamodb.NewImage.id.S;
+      const dataType = dynamodb.NewImage.dataType.S;
+      const timestamp = dynamodb.NewImage.timestamp.N;
+      const ttl = dynamodb.NewImage.ttl.N;
+      csvData.push(`${id},${dataType},${timestamp},${ttl}\n`);
     }
   }
 
   const client = new FirehoseClient();
-  for (const data of jsonData) {
+  for (const data of csvData) {
     const command = new PutRecordCommand({
       DeliveryStreamName: streamName,
       Record: {
-        Data: Buffer.from(JSON.stringify(data)),
+        Data: Buffer.from(data),
       },
     });
     await client.send(command);
